@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MeshManifest",
+  "type": "object",
+  "required": ["app", "version", "http", "ws"],
+  "properties": {
+    "app": {
+      "type": "string"
+    },
+    "version": {
+      "type": "integer"
+    },
+    "domains": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "http": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "ws": {
+      "type": "object",
+      "required": ["topics"],
+      "properties": {
+        "topics": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

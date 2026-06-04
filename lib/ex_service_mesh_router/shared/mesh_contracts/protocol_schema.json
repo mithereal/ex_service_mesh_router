@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MeshProtocolFrame",
+  "type": "object",
+  "required": ["type", "app", "payload"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["http", "ws", "control", "manifest"]
+    },
+    "app": {
+      "type": "string"
+    },
+    "path": {
+      "type": "string"
+    },
+    "method": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "object"
+    },
+    "trace_id": {
+      "type": "string"
+    }
+  }
+}

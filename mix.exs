@@ -19,7 +19,7 @@ defmodule Router.MixProject do
     [
       app: :ex_service_mesh_router,
       version: @version,
-      elixir: "~> 1.15",
+      elixir: "~> 1.16",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       name: "ex_service_mesh_router",
@@ -42,7 +42,7 @@ defmodule Router.MixProject do
   def application do
     [
       mod: {Router.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:logger]
     ]
   end
 
@@ -59,14 +59,11 @@ defmodule Router.MixProject do
 
   defp deps do
     [
-      # Plug for gateway routing
-      {:plug_cowboy, "~> 2.7"},
-
-      # Optional modern HTTP server (recommended if you want future TLS/SNI control)
-      {:bandit, "~> 1.5", optional: true},
-
-      # Optional for Phoenix umbrella apps (already used by children apps)
-      {:phoenix, "~> 1.7", optional: true},
+      {:plug, "~> 1.16"},
+      {:bandit, "~> 1.8"},
+      {:mint, "~> 1.6"},
+      {:jason, "~> 1.4"},
+               {:httpoison, "~> 2.0"},
       {:excoveralls, "~> 0.14", only: [:test, :dev]},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
     ]

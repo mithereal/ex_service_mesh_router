@@ -1,0 +1,9 @@
+{
+  "rules": [
+    "All HTTP routes must be defined in manifest.http",
+    "All websocket topics must match manifest.ws.topics",
+    "Unknown apps must fallback to default manifest",
+    "Router must never mutate app definitions",
+    "Manifests are source-of-truth contracts"
+  ]
+}

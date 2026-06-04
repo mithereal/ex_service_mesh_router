@@ -1,200 +1,219 @@
-# ExServiceMeshRouter
+# Service Mesh Router (Phoenix Multi-App Mesh System)
 
-A BEAM-native service mesh gateway for Phoenix umbrella applications with automatic service discovery. Tenant handling is owned by each Phoenix application.
-
----
-
-# Architecture Overview
-
-## Request Flow
-
-Client Request  
-→ Gateway Router  
-→ Service Registry (host → endpoint)  
-→ Phoenix Endpoint  
-→ Phoenix App Router  
-→ Tenant Plug (inside app)  
-→ Controllers / LiveView
+A compile-time + runtime service mesh built in Elixir that discovers multiple Phoenix apps, generates routing manifests, and unifies HTTP + WebSocket traffic through a central router application.
 
 ---
 
-## Installation
+# 🧭 Overview
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `ex_service_mesh_router` to your list of dependencies in `mix.exs`:
+This system consists of three layers:
 
-```elixir
-def deps do
-  [
-    {:ex_service_mesh_router, ">= 0.0.0"}
-  ]
-end
-```
+- apps/ → Phoenix applications (service providers)
+- router/ → standalone OTP application (control plane + runtime router)
+- shared/ → contract schemas + validation tooling
 
-## Configuration
-
-```elixir
-config :ex_service_mesh_router,
-           port: 4000
-```
-
-# Key Design Principles
-
-## 1. Gateway is service-only
-
-The gateway ONLY routes by host:
-
-- auth.local → AuthWeb.Endpoint
-- billing.local → BillingWeb.Endpoint
-
-No tenant logic exists in the gateway.
+The router:
+- scans all apps
+- introspects routes + channels
+- generates manifests
+- builds a global routing index
+- routes HTTP + WebSocket traffic
 
 ---
 
-## 2. Phoenix apps own tenants
+# 🏗 Architecture
 
-Each Phoenix app is responsible for:
-
-- tenant extraction
-- tenant assignment
-- tenant isolation
-- data scoping
+apps/        → Phoenix services (app_a, app_b, ...)
+router/      → service mesh runtime + compiler
+shared/      → schemas + validation rules
 
 ---
 
-## 3. Shared tenant resolver
+# ⚙️ Installation
 
-A shared module provides consistent tenant parsing across apps.
+## 1. Clone repository
 
----
-
-# Project Structure
-
-lib/
-router/
-application.ex
-router.ex
-registry.ex
-
-shared/
-tenant_resolver.ex
+git clone <repo_url>
+cd service-mesh-router
 
 ---
 
-# How It Works
+## 2. Fetch dependencies
 
-## 1. Service discovery
-
-At startup, the gateway scans loaded umbrella apps and builds a routing table from Phoenix endpoint config:
-
-Example config:
-
-config :auth_web, AuthWeb.Endpoint,
-url: [host: "auth.local", port: 4001]
-
-Becomes:
-
-auth.local → AuthWeb.Endpoint
-
----
-
-## 2. Routing
-
-Request:
-
-GET http://auth.local/login
-
-Flow:
-
-1. Extract host header
-2. Lookup endpoint in registry
-3. Forward request to Phoenix endpoint
-
----
-
-## 3. Tenant handling (inside Phoenix apps)
-
-Example:
-
-tenant1.auth.local
-
-Inside Auth app:
-
-- Tenant Plug extracts "tenant1"
-- Assigns:
-
-conn.assigns.tenant = "tenant1"
-
----
-
-# Shared Tenant Resolver
-
-Used by all Phoenix apps:
-
-Router.Shared.TenantResolver.resolve("tenant1.auth.local")
-
----
-
-# Configuration
-
-## Example Phoenix app config
-
-config :auth_web, AuthWeb.Endpoint,
-url: [
-host: "auth.local",
-port: 4001
-]
-
-config :auth_web,
-endpoint: AuthWeb.Endpoint
-
----
-
-# Running the system
-
-## Install dependencies
-
+cd router
 mix deps.get
+
+---
+
+## 3. Compile system
+
 mix compile
 
-## Start server
+---
 
-mix phx.server
+## 4. Run router
+
+mix run --no-halt
+
+Or production:
+
+MIX_ENV=prod mix release
 
 ---
 
-# Local DNS (development)
+# 🧠 How it works
 
-127.0.0.1 auth.local
-127.0.0.1 billing.local
+## 1. App discovery
 
----
+Router scans:
 
-# Test URLs
+apps/*
 
-http://auth.local:4000  
-http://billing.local:4000
+Each app must contain:
 
----
-
-# What this does NOT do
-
-- SSL termination
-- database routing
-- authentication/authorization
-- circuit breaking
-- tenant provisioning
-
-These belong in:
-- Phoenix apps
-- infrastructure layer
+- lib/
+- priv/manifest.json (generated)
 
 ---
 
-# Mental model
+## 2. Manifest generation (mesh compiler)
 
-A BEAM-native ingress router where:
+Run manually:
 
-- Gateway routes services
-- Phoenix apps own tenants
-- Each app is an isolated tenant runtime
+mix mesh.compile
+
+What it does:
+1. Scans all apps
+2. Introspects Phoenix routers + channels
+3. Builds normalized manifest
+4. Writes output into:
+
+apps/app_a/priv/manifest.json
+apps/app_b/priv/manifest.json
+
+---
+
+## 3. Manifest structure
+
+{
+"app": "app_a",
+"version": 1,
+"domains": ["localhost"],
+"http": {
+"/api/users": ["GET", "POST"],
+"/api/health": ["GET"]
+},
+"ws": {
+"topics": [
+"room:*",
+"user:*"
+]
+}
+}
+
+---
+
+## 4. Runtime aggregation
+
+Router builds:
+
+router/priv/cache/manifests.json
+
+This becomes the global routing index:
+- HTTP route → app mapping
+- WS topic → app mapping
+- domain → app mapping
+
+---
+
+## 5. HTTP routing
+
+Client → router → manifest lookup → forward to Phoenix app
+
+Matching:
+routing_index.http[path]
+
+---
+
+## 6. WebSocket routing
+
+Client → router → topic_router → app session
+
+Matching:
+routing_index.ws[topic]
+
+---
+
+# 🔄 Mesh compilation
+
+Run:
+
+mix mesh.compile
+
+Pipeline:
+
+scanner → introspector → builder → diff → writer
+
+Outputs:
+- apps/*/priv/manifest.json
+- router cache registry
+
+---
+
+# 📦 Shared contracts
+
+router/lib/ex_service_mesh_router/shared/
+
+Contains:
+- manifest schema validation
+- protocol rules
+- diff utilities
+
+---
+
+# 🧪 Testing
+
+mix test
+
+Layers:
+- test/mesh/
+- test/discovery/
+- test/routing/
+- test/integration/
+
+---
+
+# 🚦 Key commands
+
+Compile manifests:
+mix mesh.compile
+
+Run router:
+mix run --no-halt
+
+Run tests:
+mix test
+
+---
+
+# 🧠 Design principles
+
+- apps are passive services
+- router is control plane + runtime
+- manifests are source of truth
+- routing is data-driven
+- no runtime introspection required
+
+---
+
+# 🔥 Capabilities
+
+- Multi-app Phoenix discovery
+- Unified HTTP routing
+- WebSocket routing
+- Compile-time manifest generation
+- Runtime routing index
+- Diff-based architecture
+- Rollback-ready design
+
+---
