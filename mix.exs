@@ -64,6 +64,7 @@ defmodule Router.MixProject do
 
       # Optional modern HTTP server (recommended if you want future TLS/SNI control)
       {:bandit, "~> 1.5", optional: true},
+      {:req, "~> 0.5"}          # Used for non-blocking proxy transport
 
       # Optional for Phoenix umbrella apps (already used by children apps)
       {:phoenix, "~> 1.7", optional: true},
