@@ -270,6 +270,34 @@ end
 end
 ```
 
+### Safeguarding is optional by allowing you to pass a list of ignored hosts or specific keywords via application configuration. If an incoming host matches one of these safeguarded patterns, the resolver immediately returns :error instead of carving out an invalid or restricted tenant token
+
+
+How to Configure the Safeguards (config/config.exs)
+
+To activate the blocklists and protect specific admin tools or edge routes from accidentally being parsed as individual tenant subdomains, add these keys to your configuration layers:
+
+```elixir
+
+import Config
+
+config :router_shared,
+  # 1. Block whole specific infrastructure structures using host wildcards
+  ignored_host_patterns: [
+    ~r/^management\..*/,                 # Blocks any domain starting with "management."
+    ~r/.*\.internal\.zone$/,             # Blocks any domain ending in ".internal.zone"
+    ~r/^metrics-staging-\d+\.mesh\.local/ # Blocks numeric pattern domains (e.g. metrics-staging-12.mesh.local)
+  ],
+
+  # 2. Block leftmost tenant tokens based on string rules
+  restricted_tenant_patterns: [
+    ~r/^(www|admin|api|root|health)$/,   # Explicit exact matches
+    ~r/^internal-.*$/,                   # Blocks any leftmost tenant token starting with "internal-"
+    ~r/.*-dev$/                          # Blocks any leftmost tenant token ending in "-dev"
+  ]
+
+```
+
 Framework Configuration Mappings
 
 Configure the multi-framework integration properties within your infrastructure configuration file (config/config.exs):

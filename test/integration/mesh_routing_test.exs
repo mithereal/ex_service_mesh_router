@@ -179,4 +179,21 @@ defmodule ExServiceMeshRouter.Integration.MeshRoutingTest do
     assert {:error, {:redirect, %{to: "/error-invalid-tenant"}}} = 
              live_isolated(conn, MockLiveView, session: unscoped_session)
   end
+
+  test "TenantResolver successfully intercepts and safeguards restricted keywords and full domains" do
+  # Inject temporary testing configuration state attributes
+  Application.put_env(:router_shared, :ignored_hosts, ["management.mesh.local"])
+  Application.put_env(:router_shared, :restricted_tenant_keywords, ["admin", "api"])
+
+  # Assert valid extractions still compute smoothly
+  assert {:ok, "company-abc"} = Router.Shared.TenantResolver.resolve("company-abc.auth.mesh.local")
+
+  # Assert full host ignore safeguard catches hits
+  assert :error = Router.Shared.TenantResolver.resolve("management.mesh.local")
+
+  # Assert leftmost token restrictions block routing access leaks
+  assert :error = Router.Shared.TenantResolver.resolve("admin.auth.mesh.local")
+  assert :error = Router.Shared.TenantResolver.resolve("api.chat.mesh.local")
+end
+
 end
