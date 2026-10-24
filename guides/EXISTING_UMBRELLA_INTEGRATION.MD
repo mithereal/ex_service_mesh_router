@@ -11,7 +11,7 @@ Add the core routing engine and proxy dependencies directly to your umbrella's r
 ```elixir
 defp deps do
   [
-    {:ex_service_mesh_router, github: "mitherealpub/ex_service_mesh_router"},
+    {:ex_service_mesh_router, github: "mithereal/ex_service_mesh_router"},
     {:reverse_proxy_plug, "~> 3.0"},
     {:reverse_proxy_plug_websocket, "~> 0.3.0"},
     {:bandit, "~> 1.5"}
