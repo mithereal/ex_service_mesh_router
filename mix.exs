@@ -61,11 +61,11 @@ defmodule ExServiceMeshRouter.MixProject do
   defp deps do
     [
       {:reverse_proxy_plug, "~> 3.0"},
-      {:reverse_proxy_plug_websocket, "~> 0.2.0"}, 
+      {:reverse_proxy_plug_websocket, "~> 0.3.0"}, 
       {:gun, "~> 2.1"},
-      {:req, "~> 0.5"}, # FIX: Added missing trailing comma here
+      {:req, "~> 0.5"},
 
-      {:plug_cowboy, "~> 2.7"},
+      {:plug_cowboy, "~> 2.7", optional: true},
       {:bandit, "~> 1.5", optional: true},
       {:phoenix, "~> 1.7", optional: true},
       {:websockex, "~> 0.4.3", optional: true},
@@ -77,13 +77,12 @@ defmodule ExServiceMeshRouter.MixProject do
 
   defp aliases do
     [
-      # Custom optimized verification test runner pipeline alias
+      # FIX: Avoids alias recursion loops via explicit Mix.Task execution closures
       test: [
-        "env.test_setup",  # 1. Dynamically inject testing environment variables
-        "compile --force", # 2. Purge structural build caches and force compilation
-        "test"             # 3. Execute the standard target ExUnit suites
+        "env.test_setup",
+        "compile --force",
+        fn args -> Mix.Task.run("test", args) end
       ],
-      # Short macro command mapping for fast local compilations
       c: "compile"
     ]
   end
