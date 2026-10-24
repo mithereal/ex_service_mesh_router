@@ -1,4 +1,4 @@
-    # Distributed Erlang Cluster Setup with `libcluster`
+# Distributed Erlang Cluster Setup with `libcluster`
 
 This guide explains how to automatically connect your distributed service mesh gateway and downstream application nodes using `libcluster`. This ensures that `Router.Shared.ClusterLifecycleWorker` can find the gateway node over the network automatically.
 

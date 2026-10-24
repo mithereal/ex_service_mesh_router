@@ -273,9 +273,13 @@ end
 Framework Configuration Mappings
 
 Configure the multi-framework integration properties within your infrastructure configuration file (config/config.exs):
+
 elixir config :router_shared, enable_ecto_tenant: true, ecto_repo: AuthService.Repo, enable_ash_tenant: true 
+
 • Ecto Multi-Tenancy: Calls repo.put_tenant(tenant) dynamically on your designated repository adapter module to enforce Ecto query prefix isolation.
+
 • Ash Framework Multi-Tenancy: Invokes Ash.set_tenant(tenant) seamlessly across the running thread stack if the framework dependency layer is available.
+
 • Unscoped Connection Guard: If an invalid or missing tenant session is intercepted during mount initialization, the process is safely terminated via {:halt, redirect(socket, to: "/error-invalid-tenant")}.
 
 🧪 6. Verification and Operational Lifecycle
