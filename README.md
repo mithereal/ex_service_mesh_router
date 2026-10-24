@@ -48,7 +48,7 @@ Add the service mesh component and its core proxy dependencies to your umbrella'
 ```elixir
 def deps do
   [
-    {:ex_service_mesh_router, github: "mitherealpub/ex_service_mesh_router"},
+    {:ex_service_mesh_router, github: "mithereal/ex_service_mesh_router"},
     {:reverse_proxy_plug, "~> 3.0"},
     {:reverse_proxy_plug_websocket, "~> 0.3.0"}, # Required for stateful WebSocket streaming
     {:bandit, "~> 1.0"}, # High-performance HTTP server
