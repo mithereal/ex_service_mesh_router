@@ -16,15 +16,18 @@ services:
     environment:
       - MIX_ENV=prod
       - GATEWAY_PORT=4000
-      - ERLANG_NODE_NAME=router_node@gateway.mesh.local
-      - ERLANG_COOKIE=mesh_secure_token_123
+      # Native Elixir Release environment configuration hooks:
+      - RELEASE_DISTRIBUTION=name
+      - RELEASE_NODE=router_node@gateway.mesh.local
+      - RELEASE_COOKIE=mesh_secure_token_123
     ports:
       - "4000:4000"
     networks:
       mesh_network:
         aliases:
-          - gateway.mesh.local # Enables full FQDN service lookup over Docker DNS
-    command: elixir --name router_node@gateway.mesh.local --cookie mesh_secure_token_123 -S mix run --no-halt
+          - gateway.mesh.local
+    # Invokes the compiled, optimized gateway production binary directly
+    command: /app/releases/ex_service_mesh_router/bin/ex_service_mesh_router start
 
   # --- Microservice Application Node A (Auth) ---
   auth_app:
@@ -40,13 +43,18 @@ services:
       - GATEWAY_NODE=router_node@gateway.mesh.local
       - APP_NAME=auth_app
       - PORT=4002
+      # Native Elixir Release environment configuration hooks:
+      - RELEASE_DISTRIBUTION=name
+      - RELEASE_NODE=auth_app_node@auth.mesh.local
+      - RELEASE_COOKIE=mesh_secure_token_123
     networks:
       mesh_network:
         aliases:
-          - auth.mesh.local # Resolves multi-node network mappings cleanly
+          - auth.mesh.local
     depends_on:
       - gateway
-    command: elixir --name auth_app_node@auth.mesh.local --cookie mesh_secure_token_123 -S mix run --no-halt
+    # Invokes the compiled auth application binary directly
+    command: /app/releases/auth_app/bin/auth_app start
 
   # --- Microservice Application Node B (Chat) ---
   chat_app:
@@ -62,10 +70,15 @@ services:
       - GATEWAY_NODE=router_node@gateway.mesh.local
       - APP_NAME=chat_app
       - PORT=4003
+      # Native Elixir Release environment configuration hooks:
+      - RELEASE_DISTRIBUTION=name
+      - RELEASE_NODE=chat_app_node@chat.mesh.local
+      - RELEASE_COOKIE=mesh_secure_token_123
     networks:
       mesh_network:
         aliases:
-          - chat.mesh.local # Anchors DNS resolution for long name handshakes
+          - chat.mesh.local
     depends_on:
       - gateway
-    command: elixir --name chat_app_node@chat.mesh.local --cookie mesh_secure_token_123 -S mix run --no-halt
+    # Invokes the compiled chat application binary directly
+    command: /app/releases/chat_app/bin/chat_app start
