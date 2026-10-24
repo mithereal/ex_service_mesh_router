@@ -21,7 +21,9 @@ services:
     ports:
       - "4000:4000"
     networks:
-      - mesh_network
+      mesh_network:
+        aliases:
+          - gateway.mesh.local # Enables full FQDN service lookup over Docker DNS
     command: elixir --name router_node@gateway.mesh.local --cookie mesh_secure_token_123 -S mix run --no-halt
 
   # --- Microservice Application Node A (Auth) ---
@@ -39,7 +41,9 @@ services:
       - APP_NAME=auth_app
       - PORT=4002
     networks:
-      - mesh_network
+      mesh_network:
+        aliases:
+          - auth.mesh.local # Resolves multi-node network mappings cleanly
     depends_on:
       - gateway
     command: elixir --name auth_app_node@auth.mesh.local --cookie mesh_secure_token_123 -S mix run --no-halt
@@ -59,7 +63,9 @@ services:
       - APP_NAME=chat_app
       - PORT=4003
     networks:
-      - mesh_network
+      mesh_network:
+        aliases:
+          - chat.mesh.local # Anchors DNS resolution for long name handshakes
     depends_on:
       - gateway
     command: elixir --name chat_app_node@chat.mesh.local --cookie mesh_secure_token_123 -S mix run --no-halt
