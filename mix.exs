@@ -69,7 +69,11 @@ defmodule Router.MixProject do
       # Optional for Phoenix umbrella apps (already used by children apps)
       {:phoenix, "~> 1.7", optional: true},
       {:excoveralls, "~> 0.14", only: [:test, :dev]},
-      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
+      {:reverse_proxy_plug, "~> 3.0"},
+      {:reverse_proxy_plug_websocket, "~> 0.1"},
+      {:gun, "~> 2.1"},
+      {:websockex, "~> 0.4.3"}
     ]
   end
 
