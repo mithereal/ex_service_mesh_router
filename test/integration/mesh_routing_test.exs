@@ -1,6 +1,7 @@
 defmodule ExServiceMeshRouter.Integration.MeshRoutingTest do
   use ExUnit.Case, async: false
   import Plug.Conn
+  import Phoenix.LiveViewTest
 
   @gateway_port 4999
   @mock_app_port 4998
@@ -9,10 +10,18 @@ defmodule ExServiceMeshRouter.Integration.MeshRoutingTest do
   # --- Mock Downstream Service Application ---
   defmodule MockDownstreamApp do
     use Plug.Router
-    import Plug.Conn
+    use Phoenix.Component
+
+    # Required for rendering LiveViews inside the test harness
+    import Phoenix.LiveView.Router
 
     plug :match
     plug :dispatch
+
+    # Define a standard router scope for testing LiveView mount behaviors
+    live_session :secure_mesh_session, on_mount: [{Router.Shared.Hooks.TenantLiveMount, :default}] do
+      live "/live-test", MockLiveView
+    end
 
     get "/api/test" do
       host_header = get_req_header(conn, "host") |> List.first()
@@ -30,9 +39,23 @@ defmodule ExServiceMeshRouter.Integration.MeshRoutingTest do
       end
     end
 
-    # Fallback to handle WebSocket connections or other requests gracefully
     match _ do
       send_resp(conn, 200, "ok")
+    end
+  end
+
+  # --- Mock Downstream LiveView Component ---
+  defmodule MockLiveView do
+    use Phoenix.LiveView
+
+    def render(assigns) do
+      ~H"""
+      <div id="live-workspace">Tenant Workspace: <%= @tenant %></div>
+      """
+    end
+
+    def handle_params(_params, _uri, socket) do
+      {:noreply, socket}
     end
   end
 
@@ -55,27 +78,23 @@ defmodule ExServiceMeshRouter.Integration.MeshRoutingTest do
     end
   end
 
-  # --- Lifecycle Setup and Teardown Hooks ---
-  setup_all do
-    # 1. Start the core registry if it's not already running in the test process tree
-    start_supervised!(Router.Registry)
+  # --- Test Setup Context ---
+  setup do
+    # 1. Start the core registry safely isolated within this specific test process scope
+    _registry_pid = start_supervised!({Router.Registry, name: Router.Registry})
 
-    # 2. Start the Mock Downstream Application
-    {:ok, mock_pid} = Bandit.start_link(plug: MockDownstreamApp, port: @mock_app_port)
+    # 2. Start the Mock Downstream Application supervised
+    _mock_pid = start_supervised!({Bandit, plug: MockDownstreamApp, port: @mock_app_port})
 
-    # 3. Start the actual Gateway Router Server using Bandit
-    {:ok, gateway_pid} = Bandit.start_link(plug: Router.Router, port: @gateway_port)
+    # 3. Start the Ingress Gateway Router Server supervised
+    _gateway_pid = start_supervised!({Bandit, plug: Router.Router, port: @gateway_port})
 
-    # 4. FIX: Use the public API to register your service matching the updated state schema
-    # This automatically handles process linking (`self()`) and tuple state composition.
+    # 4. Invoke the public API to bind the service topology mapping
     :ok = Router.Registry.register_service(@service_host, "localhost:#{@mock_app_port}")
 
-    on_exit(fn ->
-      Process.exit(mock_pid, :shutdown)
-      Process.exit(gateway_pid, :shutdown)
-    end)
-
-    :ok
+    # Set up basic Phoenix endpoint test environment details if required by LiveViewTest
+    @endpoint MockDownstreamApp
+    {:ok, conn: Plug.Test.conn()}
   end
 
   # --- Integration Tests ---
@@ -103,7 +122,6 @@ defmodule ExServiceMeshRouter.Integration.MeshRoutingTest do
       )
 
     assert response.status == 404
-    # FIX: Updated to match your specific Router string format
     assert response.body =~ "unknown service"
   end
 
@@ -111,7 +129,6 @@ defmodule ExServiceMeshRouter.Integration.MeshRoutingTest do
     target_host = "chat-tenant.#{@service_host}"
     ws_url = "ws://localhost:#{@gateway_port}/socket/websocket"
     
-    # FIX: Options are now explicitly passed to WebSockex
     options = [
       extra_headers: [{"host", target_host}]
     ]
@@ -124,5 +141,42 @@ defmodule ExServiceMeshRouter.Integration.MeshRoutingTest do
       {:error, reason} ->
         flunk("WebSocket upgrade failed to negotiate handshake via proxy. Reason: #{inspect(reason)}")
     end
+  end
+
+  # --- NEW: X-Backplane-Service Override Bypass Test ---
+
+  test "X-Backplane-Service header completely bypasses edge host subdomain slicing" do
+    # Even though the host header format points to an invalid structure that would 
+    # normally break parsing, the explicit presence of the backplane header forces 
+    # the gateway router to evaluate the raw service registration path directly.
+    response = 
+      Req.get!("http://localhost:#{@gateway_port}/api/test", 
+        headers: [
+          {"host", "invalid-format-subdomain"},
+          {"x-backplane-service", @service_host}
+        ]
+      )
+
+    # Assert that it successfully bypasses slicing, resolves the host, and forwards down-stream
+    assert response.status == 200
+  end
+
+  # --- NEW: TenantLiveMount Hook Lifecyle Guard Test ---
+
+  test "TenantLiveMount hook successfully executes context mapping or halts unscoped sessions", %{conn: conn} do
+    # Scenario A: Connection attempts mounting with a populated session workspace mapping
+    scoped_session = %{"tenant" => "company-abc"}
+    
+    {:ok, _view, html} = 
+      live_isolated(conn, MockLiveView, session: scoped_session)
+    
+    assert html =~ "Tenant Workspace: company-abc"
+
+    # Scenario B: Connection attempts mounting with an empty session workspace context
+    unscoped_session = %{}
+    
+    # Assert that the lifecycle guard catch forces a halt and issues a safe redirect
+    assert {:error, {:redirect, %{to: "/error-invalid-tenant"}}} = 
+             live_isolated(conn, MockLiveView, session: unscoped_session)
   end
 end
