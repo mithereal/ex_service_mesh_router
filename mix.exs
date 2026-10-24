@@ -76,6 +76,13 @@ defmodule ExServiceMeshRouter.MixProject do
 
   defp aliases do
     [
+      # Custom optimized verification test runner pipeline alias
+      test: [
+        "env.test_setup",  # 1. Dynamically inject testing environment variables
+        "compile --force", # 2. Purge structural build caches and force compilation
+        "test"             # 3. Execute the standard target ExUnit suites
+      ],
+      # Short macro command mapping for fast local compilations
       c: "compile"
     ]
   end

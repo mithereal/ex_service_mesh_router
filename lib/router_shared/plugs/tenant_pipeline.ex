@@ -14,11 +14,17 @@ defmodule Router.Shared.Plugs.TenantPipeline do
     case TenantResolver.resolve(host) do
       {:ok, tenant} ->
         conn
-        # 1. Always assign tenant identifier to connection metadata
+        # 1. Always assign tenant identifier to short-lived connection metadata
         |> assign(:tenant, tenant)
-        # 2. Conditionally apply Ecto routing side effects safely
+        
+        # 2. CRITICAL FIX FOR LIVEVIEW: Persist the tenant into the HTTP session 
+        # so that the stateful on_mount token checks can read it after the websocket upgrade.
+        |> put_session("tenant", tenant)
+        
+        # 3. Conditionally apply Ecto routing side effects safely
         |> maybe_put_ecto_tenant(tenant)
-        # 3. Conditionally apply Ash framework process context scopes safely
+        
+        # 4. Conditionally apply Ash framework process context scopes safely
         |> maybe_put_ash_tenant(tenant)
 
       :error ->
@@ -37,7 +43,7 @@ defmodule Router.Shared.Plugs.TenantPipeline do
       true ->
         repo = Application.get_env(:router_shared, :ecto_repo)
         if repo do
-          # FIX: repo.put_tenant/1 modifies the process dictionary registry and returns an atom.
+          # repo.put_tenant/1 modifies the process dictionary registry and returns an atom.
           # We execute the side effect and explicitly return the conn map.
           _ = repo.put_tenant(tenant)
           conn

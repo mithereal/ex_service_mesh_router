@@ -1,23 +1,21 @@
 defmodule Router.Router do
   import Plug.Conn
   alias Router.Registry
+  require Logger
 
   def init(opts), do: opts
 
   def call(conn, _opts) do
-    host = 
-      conn 
-      |> get_req_header("host") 
-      |> List.first() 
-      |> normalize_host()
-
-    service_host = extract_service_host(host)
+    # 1. Identity Phase: Attempt extraction across public browser hosts or backplane headers
+    service_host = determine_routing_target(conn)
 
     case Registry.resolve(service_host) do
       nil -> 
+        Logger.warning("[Backplane Error] Unable to resolve route target for path key: #{inspect(service_host)}")
         send_resp(conn, 404, "unknown service: #{service_host}")
+        
       endpoint -> 
-        # Check if the incoming request is a WebSocket upgrade connection
+        # 2. Proxy Execution Phase: Check protocol type and pipe the network stream
         if websocket_upgrade?(conn) do
           forward_websocket(conn, endpoint)
         else
@@ -26,10 +24,46 @@ defmodule Router.Router do
     end
   end
 
+  # --- Routing Context Discovery Pipeline ---
+  defp determine_routing_target(conn) do
+    # Attempt to read standard edge browser host header
+    host_header = 
+      conn 
+      |> get_req_header("host") 
+      |> List.first() 
+      |> normalize_host()
+
+    # Attempt to read direct microservice-to-microservice backplane mesh overrides
+    backplane_header = 
+      conn
+      |> get_req_header("x-backplane-service")
+      |> List.first()
+
+    # Resolution prioritization chain
+    cond do
+      # If microservice explicitly passed an internal mesh token, prioritize it
+      backplane_header && backplane_header != "" ->
+        backplane_header
+
+      # If edge request carries standard multi-tenant subdomain maps
+      host_header && host_header != "" ->
+        extract_service_host(host_header)
+
+      # Ultimate fallback: check query strings if headers were fully stripped by a proxy layer
+      true ->
+        conn = fetch_query_params(conn)
+        Map.get(conn.query_params, "backplane_service", "")
+    end
+  end
+
   defp extract_service_host(nil), do: ""
   defp extract_service_host(host) do
     case String.split(host, ".") do
+      # Maps tenant1.auth.mesh.local -> auth.mesh.local
       [_tenant, service, tld] -> "#{service}.#{tld}"
+      # Support deep structures like tenant1.auth.mesh.internal.zone -> auth.mesh.internal.zone
+      [tenant | rest] when length(rest) >= 2 -> Enum.join(rest, ".")
+      # Fallback for flat development calls (e.g. "localhost")
       _ -> host
     end
   end
@@ -49,7 +83,6 @@ defmodule Router.Router do
 
   # Handles normal stateful HTTP forwarding paths
   defp forward_http(conn, endpoint_upstream_url) do
-    # Converts base endpoints to standard http URLs if protocol is missing
     http_url = ensure_protocol(endpoint_upstream_url, "http://")
     ReverseProxyPlug.call(conn, upstream: http_url)
   end
@@ -57,9 +90,6 @@ defmodule Router.Router do
   # Intercepts and tunnels persistent WebSocket connections 
   defp forward_websocket(conn, endpoint_upstream_url) do
     ws_url = ensure_protocol(endpoint_upstream_url, "ws://")
-    
-    # ReverseProxyPlugWebsocket requires options matching its runtime configuration schema
-    # It converts the request and spawns a long-running proxy broker process.
     opts = ReverseProxyPlugWebsocket.init(upstream_uri: ws_url)
     ReverseProxyPlugWebsocket.call(conn, opts)
   end
@@ -68,7 +98,6 @@ defmodule Router.Router do
     if String.contains?(url, "://") do
       url
     else
-      # Strip out loose leading forward-slashes if present in the configuration registry
       clean_url = String.trim_leading(url, "/")
       default_protocol <> clean_url
     end

@@ -1,0 +1,65 @@
+version: '3.8'
+
+networks:
+  mesh_network:
+    driver: bridge
+
+services:
+  # --- Service Ingress Gateway Node ---
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ex_service_mesh_router:latest
+    container_name: mesh_gateway_node
+    hostname: gateway.mesh.local
+    environment:
+      - MIX_ENV=prod
+      - GATEWAY_PORT=4000
+      - ERLANG_NODE_NAME=router_node@gateway.mesh.local
+      - ERLANG_COOKIE=mesh_secure_token_123
+    ports:
+      - "4000:4000"
+    networks:
+      - mesh_network
+    command: elixir --name router_node@gateway.mesh.local --cookie mesh_secure_token_123 -S mix run --no-halt
+
+  # --- Microservice Application Node A (Auth) ---
+  auth_app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ex_service_mesh_router:latest
+    container_name: auth_app_node
+    hostname: auth.mesh.local
+    environment:
+      - MIX_ENV=prod
+      - NODE_IP=auth.mesh.local
+      - GATEWAY_NODE=router_node@gateway.mesh.local
+      - APP_NAME=auth_app
+      - PORT=4002
+    networks:
+      - mesh_network
+    depends_on:
+      - gateway
+    command: elixir --name auth_app_node@auth.mesh.local --cookie mesh_secure_token_123 -S mix run --no-halt
+
+  # --- Microservice Application Node B (Chat) ---
+  chat_app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ex_service_mesh_router:latest
+    container_name: chat_app_node
+    hostname: chat.mesh.local
+    environment:
+      - MIX_ENV=prod
+      - NODE_IP=chat.mesh.local
+      - GATEWAY_NODE=router_node@gateway.mesh.local
+      - APP_NAME=chat_app
+      - PORT=4003
+    networks:
+      - mesh_network
+    depends_on:
+      - gateway
+    command: elixir --name chat_app_node@chat.mesh.local --cookie mesh_secure_token_123 -S mix run --no-halt
