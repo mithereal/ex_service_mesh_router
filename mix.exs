@@ -1,19 +1,8 @@
-defmodule Router.MixProject do
+defmodule ExServiceMeshRouter.MixProject do
   use Mix.Project
 
-  @version "1.0.0"
+  @version "1.0.1"
   @source_url "https://github.com/mithereal/ex_service_mesh_router"
-
-  defp package do
-    # These are the default files included in the package
-    [
-      name: :ex_service_mesh_router,
-      files: ["lib", "mix.exs", "README*"],
-      maintainers: ["Jason Clark"],
-      licenses: ["Apache-2.0"],
-      links: %{"GitHub" => "https://github.com/mithereal/ex_service_mesh_router"}
-    ]
-  end
 
   def project do
     [
@@ -22,14 +11,14 @@ defmodule Router.MixProject do
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
-      name: "ex_service_mesh_router",
+      name: "ExServiceMeshRouter",
       package: package(),
       description: description(),
       docs: docs(),
       aliases: aliases(),
       source_url: @source_url,
       test_coverage: [tool: ExCoveralls],
-      preferred_cli: [
+      preferred_cli_env: [
         coveralls: :test,
         "coveralls.detail": :test,
         "coveralls.post": :test,
@@ -41,8 +30,18 @@ defmodule Router.MixProject do
 
   def application do
     [
-      mod: {Router.Application, []},
+      mod: {ExServiceMeshRouter.Application, []},
       extra_applications: [:logger, :runtime_tools]
+    ]
+  end
+
+  defp package do
+    [
+      name: "ex_service_mesh_router",
+      files: ["lib", "mix.exs", "README*", "LICENSE*"], 
+      maintainers: ["Jason Clark"],
+      licenses: ["Apache-2.0"],
+      links: %{"GitHub" => @source_url}
     ]
   end
 
@@ -52,6 +51,7 @@ defmodule Router.MixProject do
 
   defp docs do
     [
+      main: "README",
       source_url: @source_url,
       extras: ["README.md"]
     ]
@@ -59,21 +59,18 @@ defmodule Router.MixProject do
 
   defp deps do
     [
-      # Plug for gateway routing
-      {:plug_cowboy, "~> 2.7"},
-
-      # Optional modern HTTP server (recommended if you want future TLS/SNI control)
-      {:bandit, "~> 1.5", optional: true},
-      {:req, "~> 0.5"}          # Used for non-blocking proxy transport
-
-      # Optional for Phoenix umbrella apps (already used by children apps)
-      {:phoenix, "~> 1.7", optional: true},
-      {:excoveralls, "~> 0.14", only: [:test, :dev]},
-      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:reverse_proxy_plug, "~> 3.0"},
-      {:reverse_proxy_plug_websocket, "~> 0.1"},
+      {:reverse_proxy_plug_websocket, "~> 0.2.0"}, 
       {:gun, "~> 2.1"},
-      {:websockex, "~> 0.4.3"}
+      {:req, "~> 0.5"}, # FIX: Added missing trailing comma here
+
+      {:plug_cowboy, "~> 2.7"},
+      {:bandit, "~> 1.5", optional: true},
+      {:phoenix, "~> 1.7", optional: true},
+      {:websockex, "~> 0.4.3", optional: true},
+
+      {:excoveralls, "~> 0.14", only: [:test, :dev]},
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
     ]
   end
 

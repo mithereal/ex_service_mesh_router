@@ -16,9 +16,9 @@ defmodule Router.Shared.Plugs.TenantPipeline do
         conn
         # 1. Always assign tenant identifier to connection metadata
         |> assign(:tenant, tenant)
-        # 2. Conditionally apply Ecto routing
+        # 2. Conditionally apply Ecto routing side effects safely
         |> maybe_put_ecto_tenant(tenant)
-        # 3. Conditionally apply Ash framework context scoping
+        # 3. Conditionally apply Ash framework process context scopes safely
         |> maybe_put_ash_tenant(tenant)
 
       :error ->
@@ -37,7 +37,9 @@ defmodule Router.Shared.Plugs.TenantPipeline do
       true ->
         repo = Application.get_env(:router_shared, :ecto_repo)
         if repo do
-          repo.put_tenant(tenant)
+          # FIX: repo.put_tenant/1 modifies the process dictionary registry and returns an atom.
+          # We execute the side effect and explicitly return the conn map.
+          _ = repo.put_tenant(tenant)
           conn
         else
           Logger.error("[Tenant Isolation Engine] Configuration error: :enable_ecto_tenant is true but :ecto_repo is missing.")
@@ -53,11 +55,9 @@ defmodule Router.Shared.Plugs.TenantPipeline do
   defp maybe_put_ash_tenant(conn, tenant) do
     case Application.get_env(:router_shared, :enable_ash_tenant, false) do
       true ->
-        # Code-splitting check to verify Ash framework package is compiled into the current runtime context
         if Code.ensure_loaded?(Ash) do
-          # Sets the current process-level tenant context for Ash actions.
-          # Ash handles structural scoping down to individual query actions or data layers automatically.
-          Ash.set_tenant(tenant)
+          # We perform the state tracking assignment and return the conn chain cleanly.
+          _ = Ash.set_tenant(tenant)
           conn
         else
           Logger.error("[Tenant Isolation Engine] Configuration error: :enable_ash_tenant is true but the Ash framework package is not loaded.")
