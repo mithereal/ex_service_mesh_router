@@ -11,15 +11,17 @@ defmodule ExServiceMeshRouter.Application do
       {Router.Registry, name: Router.Registry},
 
       # 2. Bind the modern Bandit web server layer to proxy incoming dual-protocol traffic
-      {Bandit,
-       plug: Router.Router,
-       port: port}
+      {Bandit, plug: Router.Router, port: port}
     ]
 
     # One_For_One strategy ensures that if Bandit triggers an internal connection crash,
     # it does not teardown or clear the memory tables held inside our active Registry process.
     opts = [strategy: :one_for_one, name: ExServiceMeshRouter.Supervisor]
-    Logger.info("[ExServiceMeshRouter] Starting pure-Elixir Bandit edge gateway on port #{port}...")
+
+    Logger.info(
+      "[ExServiceMeshRouter] Starting pure-Elixir Bandit edge gateway on port #{port}..."
+    )
+
     Supervisor.start_link(children, opts)
   end
 end

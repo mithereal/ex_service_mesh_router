@@ -6,10 +6,11 @@ config :router_shared,
   # Forces the lifecycle worker to run in Mode A (Local Validation) 
   # to prevent hitting missing external Erlang nodes during tests.
   gateway_node: Node.self(),
-  
+
   # Multi-framework testing flags
   enable_ecto_tenant: true,
-  ecto_repo: Router.Integration.MockRepo, # Mock repository pointer for testing
+  # Mock repository pointer for testing
+  ecto_repo: Router.Integration.MockRepo,
   enable_ash_tenant: false
 
 # Configure the mock app endpoint settings matching the lifecycle test profile

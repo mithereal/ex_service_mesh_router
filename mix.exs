@@ -18,14 +18,7 @@ defmodule ExServiceMeshRouter.MixProject do
       docs: docs(),
       aliases: aliases(),
       source_url: @source_url,
-      test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: [
-        coveralls: :test,
-        "coveralls.detail": :test,
-        "coveralls.post": :test,
-        "coveralls.html": :test,
-        "coveralls.cobertura": :test
-      ]
+      test_coverage: [tool: ExCoveralls]
     ]
   end
 
@@ -39,9 +32,9 @@ defmodule ExServiceMeshRouter.MixProject do
   defp package do
     [
       name: "ex_service_mesh_router",
-      files: ["lib", "mix.exs", "README*", "LICENSE*"], 
+      files: ["lib", "mix.exs", "README*", "LICENSE*"],
       maintainers: ["Jason Clark"],
-      licenses: ["Apache-2.0"],
+      licenses: ["MIT"],
       links: %{"GitHub" => @source_url}
     ]
   end
@@ -60,16 +53,15 @@ defmodule ExServiceMeshRouter.MixProject do
 
   defp deps do
     [
+      {:phoenix_live_view, "~> 1.0"},
       {:reverse_proxy_plug, "~> 3.0"},
-      {:reverse_proxy_plug_websocket, "~> 0.3.0"}, 
+      {:reverse_proxy_plug_websocket, "0.2.0"},
       {:gun, "~> 2.1"},
       {:req, "~> 0.5"},
-
       {:plug_cowboy, "~> 2.7", optional: true},
       {:bandit, "~> 1.5", optional: true},
       {:phoenix, "~> 1.7", optional: true},
       {:websockex, "~> 0.4.3", optional: true},
-
       {:excoveralls, "~> 0.14", only: [:test, :dev]},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
     ]
@@ -77,7 +69,6 @@ defmodule ExServiceMeshRouter.MixProject do
 
   defp aliases do
     [
-      # FIX: Avoids alias recursion loops via explicit Mix.Task execution closures
       test: [
         "env.test_setup",
         "compile --force",

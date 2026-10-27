@@ -233,3 +233,71 @@ curl -H "Host: tenant-alpha.auth.mesh.local:4000" http://localhost:4000/api/v1/s
 # Test direct programmatic microservice backplane routing override
 curl -H "X-Backplane-Service: payment-cluster-service" http://localhost:4000/transactions/capture
 ```
+
+## 🧪 6. Verification and Operational Lifecycle
+
+Once executed, you can watch real-time lifecycle tracking notifications inside your gateway terminal logs:
+
+When the worker successfully completes its handshake over Distributed Erlang:
+
+[info] [Service Mesh Cluster] Dynamic node registration received from :auth_app_node@auth.mesh.local: 'auth.mesh.local' -> 10.0.0.2:4002
+
+If that microservice machine crashes, scales down, or goes offline:
+
+[warning] [Service Mesh Cluster] Node :auth_app_node@auth.mesh.local disconnected or crashed (Reason: :noconnection). Pruning broken routes...
+[info] [Service Mesh Cluster] Deregistered route: 'auth.mesh.local' -> 10.0.0.2:4002
+```
+To test the path interception using curl, pass explicit host mappings or backplane override parameters targeting your gateway:
+```bash
+
+Test sub-domain parsing to access the underlying local auth service
+
+curl -H "Host: tenant-alpha.auth.mesh.local:4000" http://localhost:4000/api/v1/session
+
+Test direct programmatic microservice backplane routing override
+
+curl -H "X-Backplane-Service: payment-cluster-service" http://localhost:4000/transactions/capture
+```
+
+## 🔗 7. Inter-App Communication Example (e.g., Billing to Auth)
+
+When one internal microservice needs to communicate with another behind the gateway router (such as a **Billing** application needing to verify tokens or query data from an **Auth** application), you can route requests seamlessly using the mesh backplane routing header.
+
+### Step 1: Register the Auth Application
+Ensure your Auth application is configured with its mesh host name and includes the `ClusterLifecycleWorker` in its supervision tree:
+
+```elixir
+config :auth_app, AuthAppWeb.Endpoint,
+  url: [host: "auth.mesh.local", port: 4001],
+  http: [port: 4001]
+```
+
+### Step 2: Make Requests from Billing to Auth via the Mesh Gateway
+Inside your Billing application, direct HTTP or WebSocket requests to the central gateway (e.g., http://localhost:4000) and provide the x-backplane-service header specifying the target service's host key:
+
+```elixir
+defmodule Billing.AuthClient do
+require Logger
+
+def verify_user_token(token) do
+gateway_url = System.get_env("GATEWAY_URL") || "http://localhost:4000"
+
+    case Req.get("#{gateway_url}/api/v1/verify",
+           headers: [
+             {"x-backplane-service", "auth.mesh.local"},
+             {"authorization", "Bearer #{token}"}
+           ]) do
+      {:ok, %{status: 200, body: body}} ->
+        {:ok, body}
+
+      {:ok, %{status: status, body: body}} ->
+        Logger.error("[Billing] Auth verification failed with status #{status}: #{inspect(body)}")
+        {:error, :unauthorized}
+
+      {:error, exception} ->
+        Logger.error("[Billing] Network error communicating with Auth service: #{inspect(exception)}")
+        {:error, :network_error}
+    end
+end
+end
+```

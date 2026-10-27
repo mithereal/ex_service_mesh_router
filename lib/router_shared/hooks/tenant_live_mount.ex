@@ -7,7 +7,10 @@ defmodule Router.Shared.Hooks.TenantLiveMount do
     # 1. Read the tenant from your session (assigned during initial HTTP pipeline pass)
     case Map.get(session, "tenant") do
       nil ->
-        Logger.warning("[Tenant LiveView Mount Guard] Attempted connection to unscoped session context. Halting mount.")
+        Logger.warning(
+          "[Tenant LiveView Mount Guard] Attempted connection to unscoped session context. Halting mount."
+        )
+
         # Gracefully halt the stateful process and send the user to an un-isolated landing safe zone
         {:halt, redirect(socket, to: "/error-invalid-tenant")}
 
@@ -28,11 +31,13 @@ defmodule Router.Shared.Hooks.TenantLiveMount do
       true ->
         # FIX: Dynamically fetch the calling application's explicit repo pointer
         repo = Application.get_env(:router_shared, :ecto_repo)
-        
+
         if repo do
           repo.put_tenant(tenant)
         else
-          Logger.error("[Tenant LiveView Mount Guard] Config error: :enable_ecto_tenant is true but :ecto_repo is missing.")
+          Logger.error(
+            "[Tenant LiveView Mount Guard] Config error: :enable_ecto_tenant is true but :ecto_repo is missing."
+          )
         end
 
       false ->
@@ -46,7 +51,9 @@ defmodule Router.Shared.Hooks.TenantLiveMount do
         if Code.ensure_loaded?(Ash) do
           Ash.set_tenant(tenant)
         else
-          Logger.error("[Tenant LiveView Mount Guard] Config error: :enable_ash_tenant is true but Ash framework package is not loaded.")
+          Logger.error(
+            "[Tenant LiveView Mount Guard] Config error: :enable_ash_tenant is true but Ash framework package is not loaded."
+          )
         end
 
       false ->

@@ -10,11 +10,14 @@ defmodule Router.Router do
     service_host = determine_routing_target(conn)
 
     case Registry.resolve(service_host) do
-      nil -> 
-        Logger.warning("[Backplane Error] Unable to resolve route target for path key: #{inspect(service_host)}")
+      nil ->
+        Logger.warning(
+          "[Backplane Error] Unable to resolve route target for path key: #{inspect(service_host)}"
+        )
+
         send_resp(conn, 404, "unknown service: #{service_host}")
-        
-      endpoint -> 
+
+      endpoint ->
         # 2. Proxy Execution Phase: Check protocol type and pipe the network stream
         if websocket_upgrade?(conn) do
           forward_websocket(conn, endpoint)
@@ -27,14 +30,14 @@ defmodule Router.Router do
   # --- Routing Context Discovery Pipeline ---
   defp determine_routing_target(conn) do
     # Attempt to read standard edge browser host header
-    host_header = 
-      conn 
-      |> get_req_header("host") 
-      |> List.first() 
+    host_header =
+      conn
+      |> get_req_header("host")
+      |> List.first()
       |> normalize_host()
 
     # Attempt to read direct microservice-to-microservice backplane mesh overrides
-    backplane_header = 
+    backplane_header =
       conn
       |> get_req_header("x-backplane-service")
       |> List.first()
@@ -57,6 +60,7 @@ defmodule Router.Router do
   end
 
   defp extract_service_host(nil), do: ""
+
   defp extract_service_host(host) do
     case String.split(host, ".") do
       # Maps tenant1.auth.mesh.local -> auth.mesh.local
@@ -70,9 +74,9 @@ defmodule Router.Router do
 
   # Helper to identify WebSocket handshake requests
   defp websocket_upgrade?(conn) do
-    upgrade_header = 
-      conn 
-      |> get_req_header("upgrade") 
+    upgrade_header =
+      conn
+      |> get_req_header("upgrade")
       |> List.first()
 
     case upgrade_header do

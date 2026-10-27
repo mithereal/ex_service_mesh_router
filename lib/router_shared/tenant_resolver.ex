@@ -7,6 +7,7 @@ defmodule Router.Shared.TenantResolver do
 
   @spec resolve(String.t() | nil) :: {:ok, String.t()} | :error
   def resolve(nil), do: :error
+
   def resolve(host) do
     # Strip away any trailing connection port numbers
     clean_host = host |> String.split(":") |> List.first()
@@ -34,8 +35,8 @@ defmodule Router.Shared.TenantResolver do
     # Dynamically fetch optional full host wildcard or regex pattern matchers
     # Example format: [~r/^management\..*/, ~r/.*\.internal\.zone$/]
     ignored_patterns = Application.get_env(:router_shared, :ignored_host_patterns, [])
-    
-    Enum.any?(ignored_patterns, fn pattern -> 
+
+    Enum.any?(ignored_patterns, fn pattern ->
       String.match?(clean_host, pattern)
     end)
   end

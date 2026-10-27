@@ -18,8 +18,10 @@ defmodule Router.Shared.ClusterLifecycleWorker do
   @impl true
   def init(opts) do
     # Read the designated gateway node from configuration, defaulting to local node
-    gateway_node = Keyword.get(opts, :gateway_node) || Application.get_env(:router_shared, :gateway_node, Node.self())
-    
+    gateway_node =
+      Keyword.get(opts, :gateway_node) ||
+        Application.get_env(:router_shared, :gateway_node, Node.self())
+
     state = %{
       gateway_node: gateway_node,
       timer_ref: nil
@@ -48,7 +50,10 @@ defmodule Router.Shared.ClusterLifecycleWorker do
 
       # Mode C: Node is disconnected or gateway node is not visible yet
       true ->
-        Logger.warning("[Mesh Network] Gateway node #{inspect(state.gateway_node)} is not visible. Retrying in 5 seconds...")
+        Logger.warning(
+          "[Mesh Network] Gateway node #{inspect(state.gateway_node)} is not visible. Retrying in 5 seconds..."
+        )
+
         timer_ref = Process.send_after(self(), :announce_to_gateway, 5000)
         {:noreply, %{state | timer_ref: timer_ref}}
     end
@@ -63,8 +68,12 @@ defmodule Router.Shared.ClusterLifecycleWorker do
       {:ok, host, upstream_address} ->
         if Process.whereis(Router.Registry) do
           _ = Router.Registry.register_service(host, upstream_address)
-          Logger.info("[Mesh Network] Verified local registration for service '#{host}' -> #{upstream_address}")
+
+          Logger.info(
+            "[Mesh Network] Verified local registration for service '#{host}' -> #{upstream_address}"
+          )
         end
+
       :error ->
         :ok
     end
@@ -78,13 +87,20 @@ defmodule Router.Shared.ClusterLifecycleWorker do
         # allowing the gateway's `Process.link/1` hook to attach to this remote process automatically.
         case :rpc.call(gateway_node, Router.Registry, :register_service, [host, upstream_address]) do
           :ok ->
-            Logger.info("[Mesh Network] Successfully announced route via RPC to gateway node #{inspect(gateway_node)}: '#{host}' -> #{upstream_address}")
+            Logger.info(
+              "[Mesh Network] Successfully announced route via RPC to gateway node #{inspect(gateway_node)}: '#{host}' -> #{upstream_address}"
+            )
+
           error ->
-            Logger.error("[Mesh Network] Failed to announce route to remote gateway. Reason: #{inspect(error)}")
+            Logger.error(
+              "[Mesh Network] Failed to announce route to remote gateway. Reason: #{inspect(error)}"
+            )
         end
 
       :error ->
-        Logger.error("[Mesh Network] Cannot register service: local application endpoint configuration is missing.")
+        Logger.error(
+          "[Mesh Network] Cannot register service: local application endpoint configuration is missing."
+        )
     end
   end
 
@@ -93,7 +109,7 @@ defmodule Router.Shared.ClusterLifecycleWorker do
     app_name = Application.get_env(:router_shared, :app_name)
 
     case Application.get_env(app_name, :endpoint) do
-      nil -> 
+      nil ->
         :error
 
       endpoint_module ->
@@ -105,7 +121,7 @@ defmodule Router.Shared.ClusterLifecycleWorker do
           # 2. Resolve IP and Port layout
           http_config = endpoint_module.config(:http) || []
           port = Keyword.get(http_config, :port) || 4000
-          
+
           # Use an environment IP variable if deployed on a multi-node docker/cloud network
           local_ip = System.get_env("NODE_IP") || "localhost"
 
@@ -121,6 +137,7 @@ defmodule Router.Shared.ClusterLifecycleWorker do
   end
 
   defp cancel_retry_timer(%{timer_ref: nil} = state), do: state
+
   defp cancel_retry_timer(%{timer_ref: ref} = state) do
     _ = Process.cancel_timer(ref)
     %{state | timer_ref: nil}

@@ -13,7 +13,8 @@ defmodule ExServiceMeshRouter.Integration.DistributedLifecycleTest do
         # Starts the distribution runtime stack on this machine under short-name semantics
         {:ok, _pid} = :net_kernel.start([:"gateway_test_node@127.0.0.1", :shortnames])
         # Set a universal cookie for this isolated execution channel
-        Node.set_cookie(:"mesh_secure_token_123")
+        Node.set_cookie(:mesh_secure_token_123)
+
       true ->
         :ok
     end
@@ -34,13 +35,13 @@ defmodule ExServiceMeshRouter.Integration.DistributedLifecycleTest do
       app_name: :distributed_test_app,
       gateway_node: gateway_node_name
     ]
-    
+
     Application.put_env(:router_shared, :app_name, :distributed_test_app)
     Application.put_env(:router_shared, :gateway_node, gateway_node_name)
-    
+
     # Configure the target module properties expected by the dynamic worker reflection loop
     Application.put_env(:distributed_test_app, :endpoint, MockDistributedEndpoint)
-    
+
     # Stub the target module function calls inside the execution context
     defmodule MockDistributedEndpoint do
       def config(:url), do: [host: "distributed-app.mesh.local"]

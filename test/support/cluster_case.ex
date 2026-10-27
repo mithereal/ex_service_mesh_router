@@ -5,7 +5,7 @@ defmodule Router.ClusterCase do
     quote do
       import Plug.Conn
       import Phoenix.LiveViewTest
-      
+
       # Shared test constants
       @gateway_port 4999
       @mock_app_port 4998

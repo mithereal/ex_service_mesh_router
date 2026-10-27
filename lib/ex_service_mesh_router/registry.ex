@@ -51,12 +51,14 @@ defmodule Router.Registry do
 
   @impl true
   def handle_call({:register, host, upstream_address}, {from_pid, _}, state) do
-    Logger.info("[Service Mesh Cluster] Dynamic node registration received from #{inspect(node(from_pid))}: '#{host}' -> #{upstream_address}")
-    
+    Logger.info(
+      "[Service Mesh Cluster] Dynamic node registration received from #{inspect(node(from_pid))}: '#{host}' -> #{upstream_address}"
+    )
+
     # Link to the calling remote process. If the remote node crashes or gets 
     # disconnected, this gateway process will receive an internal :EXIT message.
     Process.link(from_pid)
-    
+
     # Store both the destination and the tracking pid of the worker node
     updated_state = Map.put(state, host, {upstream_address, from_pid})
     {:reply, :ok, updated_state}
@@ -71,15 +73,22 @@ defmodule Router.Registry do
   @impl true
   def handle_info({:EXIT, pid, reason}, state) do
     dead_node = node(pid)
-    Logger.warning("[Service Mesh Cluster] Node #{inspect(dead_node)} disconnected or crashed (Reason: #{inspect(reason)}). Pruning broken routes...")
-    
+
+    Logger.warning(
+      "[Service Mesh Cluster] Node #{inspect(dead_node)} disconnected or crashed (Reason: #{inspect(reason)}). Pruning broken routes..."
+    )
+
     # Prune out any host maps that were bound to the process ID that just died
-    cleaned_state = 
-      Enum.reduce(state, %{}, fn 
-        {host, {upstream_address, ^pid}}, acc -> 
-          Logger.info("[Service Mesh Cluster] Deregistered route: '#{host}' -> #{upstream_address}")
+    cleaned_state =
+      Enum.reduce(state, %{}, fn
+        {host, {upstream_address, ^pid}}, acc ->
+          Logger.info(
+            "[Service Mesh Cluster] Deregistered route: '#{host}' -> #{upstream_address}"
+          )
+
           acc
-        {host, val}, acc -> 
+
+        {host, val}, acc ->
           Map.put(acc, host, val)
       end)
 
@@ -92,20 +101,24 @@ defmodule Router.Registry do
     Application.loaded_applications()
     |> Enum.flat_map(fn {app, _, _} ->
       case Application.get_env(app, :endpoint) do
-        nil -> 
+        nil ->
           []
 
         endpoint_module ->
           if Code.ensure_loaded?(endpoint_module) do
             http_config = endpoint_module.config(:http) || []
             port = Keyword.get(http_config, :port) || 4000
-            
+
             url_config = endpoint_module.config(:url) || []
             host = Keyword.get(url_config, :host)
 
             if host do
               upstream_url = "localhost:#{port}"
-              Logger.info("[Service Mesh Discovery] Mapping local umbrella service host '#{host}' to: #{upstream_url}")
+
+              Logger.info(
+                "[Service Mesh Discovery] Mapping local umbrella service host '#{host}' to: #{upstream_url}"
+              )
+
               # Local umbrella apps use self() as the tracking pid since they share the same OS process context
               [{host, {upstream_url, self()}}]
             else

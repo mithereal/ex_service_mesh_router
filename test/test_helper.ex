@@ -1,4 +1,5 @@
-ExUnit.start()# 1. Start the core ExUnit testing framework engine
+# 1. Start the core ExUnit testing framework engine
+ExUnit.start()
 ExUnit.start(async: false)
 
 # =====================================================================
@@ -53,13 +54,15 @@ Application.put_env(:auth_app, :endpoint, Router.Integration.MockEndpoint)
 # to shield ClusterLifecycleWorker tests against :noconnection alerts.
 case Node.alive?() do
   false ->
-    IO.puts("\033[0;32m[Test Setup]\033[0m Initializing local shortname distributed node environment...")
-    
+    IO.puts(
+      "\033[0;32m[Test Setup]\033[0m Initializing local shortname distributed node environment..."
+    )
+
     # Converts this test runner instance into a visible cluster participant
     {:ok, _pid} = :net_kernel.start([:"test_runner@127.0.0.1", :shortnames])
-    
+
     # Enforce standard cookie configuration parity matching Docker/Prod spaces
-    Node.set_cookie(:"mesh_secure_token_123")
+    Node.set_cookie(:mesh_secure_token_123)
 
   true ->
     :ok

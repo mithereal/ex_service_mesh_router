@@ -15,22 +15,26 @@ defmodule ExServiceMeshRouter.Integration.MeshRoutingTest do
     # Required for rendering LiveViews inside the test harness
     import Phoenix.LiveView.Router
 
-    plug :match
-    plug :dispatch
+    plug(:match)
+    plug(:dispatch)
 
     # Define a standard router scope for testing LiveView mount behaviors
-    live_session :secure_mesh_session, on_mount: [{Router.Shared.Hooks.TenantLiveMount, :default}] do
-      live "/live-test", MockLiveView
+    live_session :secure_mesh_session,
+      on_mount: [{Router.Shared.Hooks.TenantLiveMount, :default}] do
+      live("/live-test", MockLiveView)
     end
 
     get "/api/test" do
       host_header = get_req_header(conn, "host") |> List.first()
-      
+
       case Router.Shared.TenantResolver.resolve(host_header) do
         {:ok, tenant} ->
           conn
           |> put_resp_content_type("application/json")
-          |> send_resp(200, Jason.encode!(%{status: "success", tenant: tenant, host: host_header}))
+          |> send_resp(
+            200,
+            Jason.encode!(%{status: "success", tenant: tenant, host: host_header})
+          )
 
         :error ->
           conn
@@ -102,13 +106,13 @@ defmodule ExServiceMeshRouter.Integration.MeshRoutingTest do
   test "successful stateless HTTP dynamic forwarding with tenant extraction" do
     target_host = "acme-tenant.#{@service_host}"
 
-    response = 
-      Req.get!("http://localhost:#{@gateway_port}/api/test", 
+    response =
+      Req.get!("http://localhost:#{@gateway_port}/api/test",
         headers: [{"host", target_host}]
       )
 
     assert response.status == 200
-    
+
     body = response.body
     assert body["status"] == "success"
     assert body["tenant"] == "acme-tenant"
@@ -116,8 +120,8 @@ defmodule ExServiceMeshRouter.Integration.MeshRoutingTest do
   end
 
   test "gateway aggressively rejects requests targeting unknown domain clusters" do
-    response = 
-      Req.get!("http://localhost:#{@gateway_port}/api/test", 
+    response =
+      Req.get!("http://localhost:#{@gateway_port}/api/test",
         headers: [{"host", "missing-tenant.unregistered-service.local"}]
       )
 
@@ -128,7 +132,7 @@ defmodule ExServiceMeshRouter.Integration.MeshRoutingTest do
   test "successful stateful WebSocket connection upgrade and message framing transport" do
     target_host = "chat-tenant.#{@service_host}"
     ws_url = "ws://localhost:#{@gateway_port}/socket/websocket"
-    
+
     options = [
       extra_headers: [{"host", target_host}]
     ]
@@ -139,7 +143,9 @@ defmodule ExServiceMeshRouter.Integration.MeshRoutingTest do
         Process.exit(client_pid, :normal)
 
       {:error, reason} ->
-        flunk("WebSocket upgrade failed to negotiate handshake via proxy. Reason: #{inspect(reason)}")
+        flunk(
+          "WebSocket upgrade failed to negotiate handshake via proxy. Reason: #{inspect(reason)}"
+        )
     end
   end
 
@@ -149,8 +155,8 @@ defmodule ExServiceMeshRouter.Integration.MeshRoutingTest do
     # Even though the host header format points to an invalid structure that would 
     # normally break parsing, the explicit presence of the backplane header forces 
     # the gateway router to evaluate the raw service registration path directly.
-    response = 
-      Req.get!("http://localhost:#{@gateway_port}/api/test", 
+    response =
+      Req.get!("http://localhost:#{@gateway_port}/api/test",
         headers: [
           {"host", "invalid-format-subdomain"},
           {"x-backplane-service", @service_host}
@@ -163,37 +169,39 @@ defmodule ExServiceMeshRouter.Integration.MeshRoutingTest do
 
   # --- NEW: TenantLiveMount Hook Lifecyle Guard Test ---
 
-  test "TenantLiveMount hook successfully executes context mapping or halts unscoped sessions", %{conn: conn} do
+  test "TenantLiveMount hook successfully executes context mapping or halts unscoped sessions", %{
+    conn: conn
+  } do
     # Scenario A: Connection attempts mounting with a populated session workspace mapping
     scoped_session = %{"tenant" => "company-abc"}
-    
-    {:ok, _view, html} = 
+
+    {:ok, _view, html} =
       live_isolated(conn, MockLiveView, session: scoped_session)
-    
+
     assert html =~ "Tenant Workspace: company-abc"
 
     # Scenario B: Connection attempts mounting with an empty session workspace context
     unscoped_session = %{}
-    
+
     # Assert that the lifecycle guard catch forces a halt and issues a safe redirect
-    assert {:error, {:redirect, %{to: "/error-invalid-tenant"}}} = 
+    assert {:error, {:redirect, %{to: "/error-invalid-tenant"}}} =
              live_isolated(conn, MockLiveView, session: unscoped_session)
   end
 
   test "TenantResolver successfully intercepts and safeguards restricted keywords and full domains" do
-  # Inject temporary testing configuration state attributes
-  Application.put_env(:router_shared, :ignored_hosts, ["management.mesh.local"])
-  Application.put_env(:router_shared, :restricted_tenant_keywords, ["admin", "api"])
+    # Inject temporary testing configuration state attributes
+    Application.put_env(:router_shared, :ignored_hosts, ["management.mesh.local"])
+    Application.put_env(:router_shared, :restricted_tenant_keywords, ["admin", "api"])
 
-  # Assert valid extractions still compute smoothly
-  assert {:ok, "company-abc"} = Router.Shared.TenantResolver.resolve("company-abc.auth.mesh.local")
+    # Assert valid extractions still compute smoothly
+    assert {:ok, "company-abc"} =
+             Router.Shared.TenantResolver.resolve("company-abc.auth.mesh.local")
 
-  # Assert full host ignore safeguard catches hits
-  assert :error = Router.Shared.TenantResolver.resolve("management.mesh.local")
+    # Assert full host ignore safeguard catches hits
+    assert :error = Router.Shared.TenantResolver.resolve("management.mesh.local")
 
-  # Assert leftmost token restrictions block routing access leaks
-  assert :error = Router.Shared.TenantResolver.resolve("admin.auth.mesh.local")
-  assert :error = Router.Shared.TenantResolver.resolve("api.chat.mesh.local")
-end
-
+    # Assert leftmost token restrictions block routing access leaks
+    assert :error = Router.Shared.TenantResolver.resolve("admin.auth.mesh.local")
+    assert :error = Router.Shared.TenantResolver.resolve("api.chat.mesh.local")
+  end
 end
